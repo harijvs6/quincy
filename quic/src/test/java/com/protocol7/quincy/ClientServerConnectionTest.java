@@ -57,7 +57,8 @@ public class ClientServerConnectionTest {
   private @Mock StreamListener clientListener;
   private @Mock StreamListener serverListener;
   private @Mock Timer scheduler;
-  private final FlowControlHandler flowControlHandler = new DefaultFlowControlHandler(1000, 1000);
+  private final FlowControlHandler flowControlHandler =
+      new DefaultFlowControlHandler(1000, 1000, 100, 100);
 
   public static class ForwardingPacketSender implements PacketSender {
 

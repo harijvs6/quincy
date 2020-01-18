@@ -30,7 +30,12 @@ public class Streams {
     if (stream == null) {
       stream =
           new DefaultStream(
-              streamId, frameSender, handler, StreamType.Bidirectional); // TODO support stream type
+              streamId,
+              frameSender,
+              handler,
+              StreamId.isBidirectional(streamId)
+                  ? StreamType.Bidirectional
+                  : StreamType.Receiving); // TODO support stream type
       final DefaultStream existingStream = streams.putIfAbsent(streamId, stream);
       if (existingStream != null) {
         stream = existingStream;

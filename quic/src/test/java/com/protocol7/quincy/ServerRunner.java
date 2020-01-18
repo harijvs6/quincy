@@ -23,8 +23,12 @@ public class ServerRunner {
       b.option(ChannelOption.SO_BROADCAST, true);
       b.handler(
           new QuicBuilder()
-              .withCertificates(KeyUtil.getCertsFromCrt("quic/src/test/resources/server.crt"))
-              .withPrivateKey(KeyUtil.getPrivateKey("quic/src/test/resources/server.der"))
+              .withCertificates(
+                  KeyUtil.getCertsFromCrt(
+                      "/Users/harijvs/workaholic/workspaces/quincy/quincy/quic/src/test/resources/server.crt"))
+              .withPrivateKey(
+                  KeyUtil.getPrivateKey(
+                      "/Users/harijvs/workaholic/workspaces/quincy/quincy/quic/src/test/resources/server.der"))
               .serverChannelInitializer(
                   new ChannelInboundHandlerAdapter() {
                     @Override

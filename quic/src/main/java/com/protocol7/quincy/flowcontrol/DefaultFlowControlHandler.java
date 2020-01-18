@@ -2,14 +2,17 @@ package com.protocol7.quincy.flowcontrol;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.protocol7.quincy.PipelineContext;
+import com.protocol7.quincy.protocol.StreamId;
 import com.protocol7.quincy.protocol.TransportError;
 import com.protocol7.quincy.protocol.frames.DataBlockedFrame;
 import com.protocol7.quincy.protocol.frames.Frame;
 import com.protocol7.quincy.protocol.frames.FrameType;
 import com.protocol7.quincy.protocol.frames.MaxDataFrame;
 import com.protocol7.quincy.protocol.frames.MaxStreamDataFrame;
+import com.protocol7.quincy.protocol.frames.MaxStreamsFrame;
 import com.protocol7.quincy.protocol.frames.StreamDataBlockedFrame;
 import com.protocol7.quincy.protocol.frames.StreamFrame;
+import com.protocol7.quincy.protocol.frames.StreamsBlockedFrame;
 import com.protocol7.quincy.protocol.packets.FullPacket;
 import com.protocol7.quincy.protocol.packets.Packet;
 import java.util.ArrayList;
@@ -25,9 +28,15 @@ public class DefaultFlowControlHandler implements FlowControlHandler {
   private final AtomicBoolean connectionBlocked = new AtomicBoolean(false);
   private final Set<Long> blockedStreams = new HashSet<>();
 
-  public DefaultFlowControlHandler(final long connectionMaxBytes, final long streamMaxBytes) {
-    receiveCounter = new FlowControlCounter(connectionMaxBytes, streamMaxBytes);
-    sendCounter = new FlowControlCounter(connectionMaxBytes, streamMaxBytes);
+  public DefaultFlowControlHandler(
+      final long connectionMaxBytes,
+      final long streamMaxBytes,
+      final long maxUniStreams,
+      final long maxBidiStreams) {
+    receiveCounter =
+        new FlowControlCounter(connectionMaxBytes, streamMaxBytes, maxUniStreams, maxBidiStreams);
+    sendCounter =
+        new FlowControlCounter(connectionMaxBytes, streamMaxBytes, maxUniStreams, maxBidiStreams);
   }
 
   @Override
@@ -56,12 +65,17 @@ public class DefaultFlowControlHandler implements FlowControlHandler {
       return true;
     } else {
       final List<Frame> frames = new ArrayList<>();
-      if (result.getConnectionOffset() > result.getConnectionMax() && !connectionBlocked.get()) {
-        frames.add(new DataBlockedFrame(result.getConnectionMax()));
+      final boolean bidi = StreamId.isBidirectional(sid);
+      if (result.getStreams() > result.getMaxStreams()) {
+        frames.add(new StreamsBlockedFrame(result.getMaxStreams(), bidi));
+      }
+      if (result.getConnectionOffset() > result.getConnectionMaxBytes()
+          && !connectionBlocked.get()) {
+        frames.add(new DataBlockedFrame(result.getConnectionMaxBytes()));
         connectionBlocked.set(true);
       }
-      if (result.getStreamOffset() > result.getStreamMax() && !blockedStreams.contains(sid)) {
-        frames.add(new StreamDataBlockedFrame(sid, result.getStreamMax()));
+      if (result.getStreamOffset() > result.getStreamMaxBytes() && !blockedStreams.contains(sid)) {
+        frames.add(new StreamDataBlockedFrame(sid, result.getStreamMaxBytes()));
         blockedStreams.add(sid);
       }
       if (!frames.isEmpty()) {
@@ -92,22 +106,35 @@ public class DefaultFlowControlHandler implements FlowControlHandler {
 
           if (result.isSuccess()) {
             final List<Frame> frames = new ArrayList<>();
-            if (1.0 * result.getConnectionOffset() / result.getConnectionMax() > 0.5) {
+            if (1.0 * result.getConnectionOffset() / result.getConnectionMaxBytes() > 0.5) {
               final long newMax = receiveCounter.increaseConnectionMax();
               frames.add(new MaxDataFrame(newMax));
             }
-            if (1.0 * result.getStreamOffset() / result.getStreamMax() > 0.5) {
+            if (1.0 * result.getStreamOffset() / result.getStreamMaxBytes() > 0.5) {
               final long newMax = receiveCounter.increaseStreamMax(sid);
               frames.add(new MaxStreamDataFrame(sid, newMax));
             }
-
+            // TODO right place?. stream not yet closed
+            if (sf.isFin()) {
+              final boolean bidi = StreamId.isBidirectional(sid);
+              final long newMax = receiveCounter.increaseMaxStreams(bidi);
+              frames.add(new MaxStreamsFrame(newMax, bidi));
+            }
             if (!frames.isEmpty()) {
               ctx.send(frames.toArray(new Frame[0]));
             }
           } else {
-            ctx.closeConnection(
-                TransportError.FLOW_CONTROL_ERROR, FrameType.STREAM, "Flow control error");
+            if (result.getStreams() == result.getMaxStreams()) {
+              ctx.closeConnection(
+                  TransportError.STREAM_LIMIT_ERROR, FrameType.STREAM, "Stream limit error");
+            } else {
+              ctx.closeConnection(
+                  TransportError.FLOW_CONTROL_ERROR, FrameType.STREAM, "Flow control error");
+            }
           }
+        } else if (frame.getType() == FrameType.MAX_STREAMS) {
+          final MaxStreamsFrame msf = (MaxStreamsFrame) frame;
+          receiveCounter.setMaxStreams(msf.getMaxStreams(), msf.isBidi());
         }
       }
     }

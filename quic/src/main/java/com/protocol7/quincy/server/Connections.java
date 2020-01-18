@@ -57,7 +57,9 @@ public class Connections {
               certificates,
               privateKey,
               new DefaultFlowControlHandler(
-                  configuration.getInitialMaxData(), configuration.getInitialMaxStreamDataUni()),
+                  configuration.getInitialMaxData(), configuration.getInitialMaxStreamDataUni(),
+                  configuration.getInitialMaxUniStreams(),
+                      configuration.getInitialMaxBidiStreams()),
               peerAddress,
               timer);
       final ServerConnection existingConn = connections.putIfAbsent(connId, conn);

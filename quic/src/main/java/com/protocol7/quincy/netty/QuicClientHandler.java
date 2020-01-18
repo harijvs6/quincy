@@ -61,7 +61,8 @@ public class QuicClientHandler extends ChannelDuplexHandler {
             streamListener,
             new NettyPacketSender(ctx.channel(), remoteAddress()),
             new DefaultFlowControlHandler(
-                configuration.getInitialMaxData(), configuration.getInitialMaxStreamDataUni()),
+                configuration.getInitialMaxData(), configuration.getInitialMaxStreamDataUni(),
+                configuration.getInitialMaxUniStreams(), configuration.getInitialMaxBidiStreams()),
             (InetSocketAddress) ctx.channel().remoteAddress(),
             new NoopCertificateValidator(), // cert validation disabled
             timer);

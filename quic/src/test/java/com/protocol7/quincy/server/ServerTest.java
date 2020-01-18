@@ -55,7 +55,8 @@ public class ServerTest {
   @Mock private PacketSender packetSender;
   @Mock private StreamListener streamListener;
   @Mock private Timer scheduler;
-  private final FlowControlHandler flowControlHandler = new DefaultFlowControlHandler(1000, 1000);
+  private final FlowControlHandler flowControlHandler =
+      new DefaultFlowControlHandler(1000, 1000, 100, 100);
 
   @Before
   public void setUp() {

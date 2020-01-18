@@ -28,7 +28,7 @@ import org.junit.Test;
 
 public class DefaultFlowControlHandlerTest {
 
-  private final DefaultFlowControlHandler handler = new DefaultFlowControlHandler(15, 10);
+  private final DefaultFlowControlHandler handler = new DefaultFlowControlHandler(15, 10, 100, 100);
   private final PipelineContext ctx = mock(PipelineContext.class);
   private final long sid = 123;
   private final long sid2 = 456;

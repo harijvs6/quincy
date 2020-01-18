@@ -8,10 +8,19 @@ public class FlowControlCounterTest {
 
   private final long maxConn = 15;
   private final long maxStream = 10;
+  private final long maxUniStreams = 2;
+  private final long maxBidiStreams = 2;
 
-  private final FlowControlCounter fcm = new FlowControlCounter(maxConn, maxStream);
-  private final long sid = 123;
-  private final long sid2 = 456;
+  private final FlowControlCounter fcm =
+      new FlowControlCounter(maxConn, maxStream, maxUniStreams, maxBidiStreams);
+  private final long sid = 4;
+  private final long sid2 = 5;
+  private final long bidiSid1 = 8;
+  private final long bidiSid2 = 9;
+  private final long bidiSid3 = 12;
+  private final long uniSid1 = 10;
+  private final long uniSid2 = 11;
+  private final long uniSid3 = 14;
 
   @Test
   public void tryConsumeConnection() {
@@ -84,6 +93,28 @@ public class FlowControlCounterTest {
     fcm.setStreamMaxBytes(sid, -1);
   }
 
+  @Test
+  public void tryConsumeMaxUniStreams() {
+    fcm.tryConsume(uniSid1, 2);
+    fcm.tryConsume(uniSid2, 2);
+    assertConsume(fcm.tryConsume(uniSid3, 2), false, 2, 2);
+    assertConsume(fcm.tryConsume(bidiSid1, 2), true, 1, 2);
+
+    fcm.setMaxStreams(3, false);
+    assertConsume(fcm.tryConsume(uniSid3, 2), true, 3, 3);
+  }
+
+  @Test
+  public void tryConsumeMaxBidiStreams() {
+    fcm.tryConsume(bidiSid1, 2);
+    fcm.tryConsume(bidiSid2, 2);
+    assertConsume(fcm.tryConsume(bidiSid3, 2), false, 2, 2);
+    assertConsume(fcm.tryConsume(uniSid1, 2), true, 1, 2);
+
+    fcm.setMaxStreams(3, true);
+    assertConsume(fcm.tryConsume(bidiSid3, 2), true, 3, 3);
+  }
+
   private void assertConsume(
       final TryConsumeResult actual,
       final boolean success,
@@ -93,8 +124,18 @@ public class FlowControlCounterTest {
       final long streamMax) {
     assertEquals(success, actual.isSuccess());
     assertEquals("Connection offset", connectionOffset, actual.getConnectionOffset());
-    assertEquals("Connection max", connectionMax, actual.getConnectionMax());
+    assertEquals("Connection max", connectionMax, actual.getConnectionMaxBytes());
     assertEquals("Stream offset", streamOffset, actual.getStreamOffset());
-    assertEquals("Stream max", streamMax, actual.getStreamMax());
+    assertEquals("Stream max", streamMax, actual.getStreamMaxBytes());
+  }
+
+  private void assertConsume(
+      final TryConsumeResult actual,
+      final boolean success,
+      final long streams,
+      final long streamsMax) {
+    assertEquals(success, actual.isSuccess());
+    assertEquals("Streams", streams, actual.getStreams());
+    assertEquals("Streams max", streamsMax, actual.getMaxStreams());
   }
 }

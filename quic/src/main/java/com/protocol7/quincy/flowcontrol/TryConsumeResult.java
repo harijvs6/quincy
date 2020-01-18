@@ -3,21 +3,27 @@ package com.protocol7.quincy.flowcontrol;
 public class TryConsumeResult {
   private final boolean success;
   private final long connectionOffset;
-  private final long connectionMax;
+  private final long connectionMaxBytes;
   private final long streamOffset;
-  private final long streamMax;
+  private final long streamMaxBytes;
+  private final long maxStreams;
+  private final long streams;
 
   public TryConsumeResult(
       final boolean success,
       final long connectionOffset,
-      final long connectionMax,
+      final long connectionMaxBytes,
       final long streamOffset,
-      final long streamMax) {
+      final long streamMaxBytes,
+      final long maxStreams,
+      final long streams) {
     this.success = success;
     this.connectionOffset = connectionOffset;
-    this.connectionMax = connectionMax;
+    this.connectionMaxBytes = connectionMaxBytes;
     this.streamOffset = streamOffset;
-    this.streamMax = streamMax;
+    this.streamMaxBytes = streamMaxBytes;
+    this.maxStreams = maxStreams;
+    this.streams = streams;
   }
 
   public boolean isSuccess() {
@@ -28,15 +34,23 @@ public class TryConsumeResult {
     return connectionOffset;
   }
 
-  public long getConnectionMax() {
-    return connectionMax;
+  public long getConnectionMaxBytes() {
+    return connectionMaxBytes;
   }
 
   public long getStreamOffset() {
     return streamOffset;
   }
 
-  public long getStreamMax() {
-    return streamMax;
+  public long getStreamMaxBytes() {
+    return streamMaxBytes;
+  }
+
+  public long getMaxStreams() {
+    return maxStreams;
+  }
+
+  public long getStreams() {
+    return streams;
   }
 }
