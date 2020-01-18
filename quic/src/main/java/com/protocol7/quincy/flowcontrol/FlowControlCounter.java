@@ -62,6 +62,7 @@ public class FlowControlCounter {
               }
               final long streams =
                   bidi ? bidiStreams.incrementAndGet() : uniStreams.incrementAndGet();
+              System.out.println(uniStreams.get());
               return new StreamCounter();
             });
 
@@ -150,9 +151,9 @@ public class FlowControlCounter {
 
   public long increaseMaxStreams(final boolean bidi) {
     if (!bidi) {
-      return maxUniStreams.addAndGet(maxUniStreams.get());
+      return maxUniStreams.incrementAndGet();
     } else {
-      return maxBidiStreams.addAndGet(maxBidiStreams.get());
+      return maxBidiStreams.incrementAndGet();
     }
   }
 

@@ -48,4 +48,24 @@ public class StreamsBlockedFrame extends Frame {
 
     Varint.write(streamsLimit, bb);
   }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + (bidi ? 1231 : 1237);
+    result = prime * result + (int) (streamsLimit ^ (streamsLimit >>> 32));
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null) return false;
+    if (getClass() != obj.getClass()) return false;
+    StreamsBlockedFrame other = (StreamsBlockedFrame) obj;
+    if (bidi != other.bidi) return false;
+    if (streamsLimit != other.streamsLimit) return false;
+    return true;
+  }
 }

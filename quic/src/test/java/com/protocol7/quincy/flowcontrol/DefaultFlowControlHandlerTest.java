@@ -19,8 +19,10 @@ import com.protocol7.quincy.protocol.frames.Frame;
 import com.protocol7.quincy.protocol.frames.FrameType;
 import com.protocol7.quincy.protocol.frames.MaxDataFrame;
 import com.protocol7.quincy.protocol.frames.MaxStreamDataFrame;
+import com.protocol7.quincy.protocol.frames.MaxStreamsFrame;
 import com.protocol7.quincy.protocol.frames.StreamDataBlockedFrame;
 import com.protocol7.quincy.protocol.frames.StreamFrame;
+import com.protocol7.quincy.protocol.frames.StreamsBlockedFrame;
 import com.protocol7.quincy.protocol.packets.FullPacket;
 import com.protocol7.quincy.protocol.packets.Packet;
 import com.protocol7.quincy.protocol.packets.ShortPacket;
@@ -28,10 +30,18 @@ import org.junit.Test;
 
 public class DefaultFlowControlHandlerTest {
 
-  private final DefaultFlowControlHandler handler = new DefaultFlowControlHandler(15, 10, 100, 100);
+  private final DefaultFlowControlHandler handler = new DefaultFlowControlHandler(15, 10, 2, 2);
   private final PipelineContext ctx = mock(PipelineContext.class);
   private final long sid = 123;
   private final long sid2 = 456;
+  private final long bidiSid1 = 8;
+  private final long bidiSid2 = 9;
+  private final long bidiSid3 = 12;
+  private final long bidiSid4 = 16;
+  private final long uniSid1 = 10;
+  private final long uniSid2 = 11;
+  private final long uniSid3 = 14;
+  private final long uniSid4 = 15;
 
   @Test
   public void tryConsume() {
@@ -44,7 +54,7 @@ public class DefaultFlowControlHandlerTest {
   }
 
   @Test
-  public void tryConsumeRefillStream() {
+  public void tryConsumeRefillStreamData() {
     assertTrue(handler.tryConsume(sid, 10, ctx));
     verifyZeroInteractions(ctx);
 
@@ -77,6 +87,46 @@ public class DefaultFlowControlHandlerTest {
     // we must now get a new data blocked frame
     assertFalse(handler.tryConsume(sid, 14, ctx));
     verify(ctx).send(new StreamDataBlockedFrame(sid, 13));
+  }
+
+  @Test
+  public void tryConsumeRefillStreams() {
+    // first stream
+    assertTrue(handler.tryConsume(uniSid1, 2, ctx));
+    verifyZeroInteractions(ctx);
+
+    // second stream
+    assertTrue(handler.tryConsume(uniSid2, 2, ctx));
+    verifyZeroInteractions(ctx);
+
+    // running out of streams
+    assertFalse(handler.tryConsume(uniSid3, 3, ctx));
+    verify(ctx).send(new StreamsBlockedFrame(2, false));
+
+    // bidi streams still available
+    assertTrue(handler.tryConsume(bidiSid1, 1, ctx));
+    verifyZeroInteractions(ctx);
+
+    // increase number of uni streams
+    Packet packet = p(new MaxStreamsFrame(3, false));
+    handler.onReceivePacket(packet, ctx);
+    verify(ctx).next(packet);
+
+    // we can now create more streams
+    assertTrue(handler.tryConsume(uniSid3, 2, ctx));
+    verifyZeroInteractions(ctx);
+
+    // not this many
+    assertFalse(handler.tryConsume(uniSid4, 3, ctx));
+    verify(ctx).send(new StreamsBlockedFrame(3, false));
+
+    // allow bidi stream
+    assertTrue(handler.tryConsume(bidiSid2, 2, ctx));
+    verifyZeroInteractions(ctx);
+
+    // not this many
+    assertFalse(handler.tryConsume(bidiSid3, 2, ctx));
+    verify(ctx).send(new StreamsBlockedFrame(2, true));
   }
 
   @Test
@@ -134,6 +184,43 @@ public class DefaultFlowControlHandlerTest {
     handler.onReceivePacket(packet, ctx);
     verify(ctx)
         .closeConnection(eq(TransportError.FLOW_CONTROL_ERROR), eq(FrameType.STREAM), anyString());
+    verify(ctx).next(packet);
+  }
+
+  @Test
+  public void maxStreamsFrames() {
+    // first uni stream
+    Packet packet = p(new StreamFrame(uniSid1, 0, false, new byte[1]));
+    handler.onReceivePacket(packet, ctx);
+    verify(ctx).next(packet);
+
+    // second uni stream with fin bit set. should send MAX_STREAMS frame
+    packet = p(new StreamFrame(uniSid1, 0, true, new byte[1]));
+    handler.onReceivePacket(packet, ctx);
+    verify(ctx).send(new MaxStreamsFrame(3, false));
+    verify(ctx).next(packet);
+
+    // first bidi stream
+    packet = p(new StreamFrame(bidiSid1, 0, false, new byte[1]));
+    handler.onReceivePacket(packet, ctx);
+    verify(ctx).next(packet);
+
+    // second bidi stream with fin bit set. should send MAX_STREAMS frame
+    packet = p(new StreamFrame(bidiSid2, 0, true, new byte[1]));
+    handler.onReceivePacket(packet, ctx);
+    verify(ctx).send(new MaxStreamsFrame(3, true));
+    verify(ctx).next(packet);
+
+    // open more streams
+    packet = p(new StreamFrame(bidiSid3, 0, false, new byte[1]));
+    handler.onReceivePacket(packet, ctx);
+    verify(ctx).next(packet);
+
+    // not more than this. close connection
+    packet = p(new StreamFrame(bidiSid4, 0, false, new byte[1]));
+    handler.onReceivePacket(packet, ctx);
+    verify(ctx)
+        .closeConnection(eq(TransportError.STREAM_LIMIT_ERROR), eq(FrameType.STREAM), anyString());
     verify(ctx).next(packet);
   }
 

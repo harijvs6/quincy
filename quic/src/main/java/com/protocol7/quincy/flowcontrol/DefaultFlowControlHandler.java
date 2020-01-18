@@ -66,7 +66,7 @@ public class DefaultFlowControlHandler implements FlowControlHandler {
     } else {
       final List<Frame> frames = new ArrayList<>();
       final boolean bidi = StreamId.isBidirectional(sid);
-      if (result.getStreams() > result.getMaxStreams()) {
+      if (result.getStreams() == result.getMaxStreams()) {
         frames.add(new StreamsBlockedFrame(result.getMaxStreams(), bidi));
       }
       if (result.getConnectionOffset() > result.getConnectionMaxBytes()
@@ -134,7 +134,7 @@ public class DefaultFlowControlHandler implements FlowControlHandler {
           }
         } else if (frame.getType() == FrameType.MAX_STREAMS) {
           final MaxStreamsFrame msf = (MaxStreamsFrame) frame;
-          receiveCounter.setMaxStreams(msf.getMaxStreams(), msf.isBidi());
+          sendCounter.setMaxStreams(msf.getMaxStreams(), msf.isBidi());
         }
       }
     }
